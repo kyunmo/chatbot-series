@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  # ChatBot 전용 PostgreSQL
+  chatbot-db:
+    image: postgres:16
+    container_name: chatbot-postgresql
+    environment:
+      POSTGRES_DB: chatbot_dev
+      POSTGRES_USER: chatbot
+      POSTGRES_PASSWORD: chatbot2025@
+      POSTGRES_ROOT_PASSWORD: root2025@
+      TZ: Asia/Seoul
+    ports:
+      - "5432:5432"
+    volumes:
+      - C:/dev/db-environment/data/chatbot-postgresql:/var/lib/postgresql/data
+      - ./docker/init:/docker-entrypoint-initdb.d
+    networks:
+      - db-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatbot -d chatbot_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  chatbot-mail:
+    image: mailhog/mailhog
+    container_name: chatbot-mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - db-network
+    restart: unless-stopped
+
+networks:
+  db-network:
+    external: true

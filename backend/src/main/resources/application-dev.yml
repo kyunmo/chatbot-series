@@ -1,0 +1,30 @@
+spring:
+  devtools:
+    restart:
+      enabled: true
+    livereload:
+      enabled: true
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/chatbot_dev
+    username: chatbot
+    password: chatbot2025@
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+
+server:
+  port: 9780
+
+file:
+  upload:
+    path: ${FILE_UPLOAD_PATH:C:/ATTACH_FILES/chat/data}
+    temp-path: ${FILE_TEMP_PATH:C:/ATTACH_FILES/chat/temp}
+
+logging:
+  level:
+    io.moyam.chatbot: DEBUG
+    org.springframework.web: DEBUG
+    org.mybatis: DEBUG
