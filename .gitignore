@@ -86,3 +86,11 @@ Desktop.ini
 *.log
 *.tmp
 *.swp
+
+# Vite cache
+.vite/
+**/.vite/
+**/node_modules/.vite/
+
+# TypeScript incremental build info
+*.tsbuildinfo
