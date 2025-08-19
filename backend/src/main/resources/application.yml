@@ -17,10 +17,14 @@ server:
 
 mybatis:
   mapper-locations: classpath:mybatis/mapper/**/*.xml
+  type-aliases-package: io.moyam.chatbot.domain
+  type-handlers-package: io.moyam.chatbot.config
   configuration:
     map-underscore-to-camel-case: true
     default-fetch-size: 100
     default-statement-timeout: 30
+    call-setters-on-nulls: true
+    return-instance-for-empty-row: true
 
 logging:
   pattern:
