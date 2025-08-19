@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moyam.chatbot.domain.user.repository.UserMapper">
+
+    <resultMap id="userResultMap" type="io.moyam.chatbot.domain.user.model.User">
+        <id property="id" column="id"/>
+        <result property="email" column="email"/>
+        <result property="passwordHash" column="password_hash"/>
+        <result property="name" column="name"/>
+        <result property="isActive" column="is_active"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="io.moyam.chatbot.domain.user.model.User" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users (email, password_hash, name, is_active, created_at, updated_at)
+        VALUES (#{email}, #{passwordHash}, #{name}, #{isActive}, NOW(), NOW())
+    </insert>
+
+    <select id="findById" resultMap="userResultMap">
+        SELECT id, email, password_hash, name, is_active, created_at, updated_at
+        FROM users
+        WHERE id = #{id} AND is_active = TRUE
+    </select>
+
+    <select id="findByEmail" resultMap="userResultMap">
+        SELECT id, email, password_hash, name, is_active, created_at, updated_at
+        FROM users
+        WHERE email = #{email} AND is_active = TRUE
+    </select>
+
+    <select id="findAll" resultMap="userResultMap">
+        SELECT id, email, password_hash, name, is_active, created_at, updated_at
+        FROM users
+        WHERE is_active = TRUE
+        ORDER BY created_at DESC
+    </select>
+
+    <update id="update" parameterType="io.moyam.chatbot.domain.user.model.User">
+        UPDATE users
+        SET email = #{email},
+            name = #{name},
+            is_active = #{isActive},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        UPDATE users
+        SET is_active = FALSE, updated_at = NOW()
+        WHERE id = #{id}
+    </delete>
+
+</mapper>

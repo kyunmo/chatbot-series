@@ -55,7 +55,6 @@ dependencies {
     // --- Test
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.mybatis.spring.boot:mybatis-spring-boot-starter-test:3.0.5")
-    testRuntimeOnly("com.h2database:h2")
 }
 
 tasks.test {
