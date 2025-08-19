@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moyam.chatbot.domain.conversation.repository.ConversationMapper">
+
+    <resultMap id="conversationResultMap" type="io.moyam.chatbot.domain.conversation.model.Conversation">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="botId" column="bot_id"/>
+        <result property="currentScenarioId" column="current_scenario_id"/>
+        <result property="currentStepId" column="current_step_id"/>
+        <result property="contextData" column="context_data" 
+                typeHandler="io.moyam.chatbot.config.JsonTypeHandler"/>
+        <result property="status" column="status" 
+                typeHandler="org.apache.ibatis.type.EnumTypeHandler"/>
+        <result property="sessionId" column="session_id"/>
+        <result property="startedAt" column="started_at"/>
+        <result property="lastMessageAt" column="last_message_at"/>
+        <result property="endedAt" column="ended_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="io.moyam.chatbot.domain.conversation.model.Conversation" 
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO conversations (
+            user_id, 
+            bot_id, 
+            current_scenario_id, 
+            current_step_id, 
+            context_data, 
+            status, 
+            session_id, 
+            started_at, 
+            last_message_at, 
+            ended_at
+        )
+        VALUES (
+            #{userId}, 
+            #{botId}, 
+            #{currentScenarioId}, 
+            #{currentStepId}, 
+            #{contextData, typeHandler=io.moyam.chatbot.config.JsonTypeHandler}, 
+            #{status}::varchar, 
+            #{sessionId}, 
+            COALESCE(#{startedAt}, NOW()), 
+            COALESCE(#{lastMessageAt}, NOW()), 
+            #{endedAt}
+        )
+    </insert>
+
+    <select id="findById" resultMap="conversationResultMap">
+        SELECT 
+            id, 
+            user_id, 
+            bot_id, 
+            current_scenario_id, 
+            current_step_id, 
+            context_data, 
+            status, 
+            session_id, 
+            started_at, 
+            last_message_at, 
+            ended_at
+        FROM conversations
+        WHERE id = #{id}
+    </select>
+
+    <select id="findBySessionId" resultMap="conversationResultMap">
+        SELECT 
+            id, 
+            user_id, 
+            bot_id, 
+            current_scenario_id, 
+            current_step_id, 
+            context_data, 
+            status, 
+            session_id, 
+            started_at, 
+            last_message_at, 
+            ended_at
+        FROM conversations
+        WHERE session_id = #{sessionId}
+    </select>
+
+    <select id="findByBotId" resultMap="conversationResultMap">
+        SELECT 
+            id, 
+            user_id, 
+            bot_id, 
+            current_scenario_id, 
+            current_step_id, 
+            context_data, 
+            status, 
+            session_id, 
+            started_at, 
+            last_message_at, 
+            ended_at
+        FROM conversations
+        WHERE bot_id = #{botId}
+        ORDER BY last_message_at DESC
+    </select>
+
+    <select id="findByUserId" resultMap="conversationResultMap">
+        SELECT 
+            id, 
+            user_id, 
+            bot_id, 
+            current_scenario_id, 
+            current_step_id, 
+            context_data, 
+            status, 
+            session_id, 
+            started_at, 
+            last_message_at, 
+            ended_at
+        FROM conversations
+        WHERE user_id = #{userId}
+        ORDER BY last_message_at DESC
+    </select>
+
+    <select id="findActiveByUserAndBot" resultMap="conversationResultMap">
+        SELECT 
+            id, 
+            user_id, 
+            bot_id, 
+            current_scenario_id, 
+            current_step_id, 
+            context_data, 
+            status, 
+            session_id, 
+            started_at, 
+            last_message_at, 
+            ended_at
+        FROM conversations
+        WHERE user_id = #{userId} 
+          AND bot_id = #{botId} 
+          AND status = 'ACTIVE'
+        ORDER BY last_message_at DESC
+        LIMIT 1
+    </select>
+
+    <update id="update" parameterType="io.moyam.chatbot.domain.conversation.model.Conversation">
+        UPDATE conversations
+        SET current_scenario_id = #{currentScenarioId},
+            current_step_id = #{currentStepId},
+            context_data = #{contextData, typeHandler=io.moyam.chatbot.config.JsonTypeHandler},
+            status = #{status}::varchar,
+            last_message_at = COALESCE(#{lastMessageAt}, NOW()),
+            ended_at = #{endedAt}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE conversations
+        SET status = #{status}::varchar,
+            last_message_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateCurrentStep">
+        UPDATE conversations
+        SET current_step_id = #{currentStepId},
+            last_message_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateContextData">
+        UPDATE conversations
+        SET context_data = #{contextData, typeHandler=io.moyam.chatbot.config.JsonTypeHandler},
+            last_message_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM conversations
+        WHERE id = #{id}
+    </delete>
+
+    <!-- 대화 통계 조회 -->
+    <select id="countByBotId" resultType="long">
+        SELECT COUNT(*)
+        FROM conversations
+        WHERE bot_id = #{botId}
+    </select>
+
+    <select id="countActiveByBotId" resultType="long">
+        SELECT COUNT(*)
+        FROM conversations
+        WHERE bot_id = #{botId} AND status = 'ACTIVE'
+    </select>
+
+    <!-- 기간별 대화 조회 -->
+    <select id="findByBotIdAndDateRange" resultMap="conversationResultMap">
+        SELECT 
+            id, 
+            user_id, 
+            bot_id, 
+            current_scenario_id, 
+            current_step_id, 
+            context_data, 
+            status, 
+            session_id, 
+            started_at, 
+            last_message_at, 
+            ended_at
+        FROM conversations
+        WHERE bot_id = #{botId}
+          AND started_at BETWEEN #{startDate} AND #{endDate}
+        ORDER BY started_at DESC
+    </select>
+
+    <!-- 비활성 대화 정리 (30일 이상 된 완료/중단 대화) -->
+    <update id="cleanupOldConversations">
+        UPDATE conversations
+        SET status = 'ARCHIVED'
+        WHERE status IN ('COMPLETED', 'ABANDONED')
+          AND last_message_at &lt; NOW() - INTERVAL '30 days'
+    </update>
+
+</mapper>

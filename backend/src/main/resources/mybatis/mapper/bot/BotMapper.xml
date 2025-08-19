@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moyam.chatbot.domain.bot.repository.BotMapper">
+
+    <resultMap id="botResultMap" type="io.moyam.chatbot.domain.bot.model.Bot">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="name" column="name"/>
+        <result property="description" column="description"/>
+        <result property="siteUrl" column="site_url"/>
+        <result property="isActive" column="is_active"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="io.moyam.chatbot.domain.bot.model.Bot" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO bots (user_id, name, description, site_url, is_active, created_at, updated_at)
+        VALUES (#{userId}, #{name}, #{description}, #{siteUrl}, #{isActive}, NOW(), NOW())
+    </insert>
+
+    <select id="findById" resultMap="botResultMap">
+        SELECT id, user_id, name, description, site_url, is_active, created_at, updated_at
+        FROM bots
+        WHERE id = #{id} AND is_active = TRUE
+    </select>
+
+    <select id="findByUserId" resultMap="botResultMap">
+        SELECT id, user_id, name, description, site_url, is_active, created_at, updated_at
+        FROM bots
+        WHERE user_id = #{userId} AND is_active = TRUE
+        ORDER BY created_at DESC
+    </select>
+
+    <update id="update" parameterType="io.moyam.chatbot.domain.bot.model.Bot">
+        UPDATE bots
+        SET name = #{name},
+            description = #{description},
+            site_url = #{siteUrl},
+            is_active = #{isActive},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        UPDATE bots
+        SET is_active = FALSE, updated_at = NOW()
+        WHERE id = #{id}
+    </delete>
+
+</mapper>
