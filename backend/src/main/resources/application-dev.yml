@@ -11,9 +11,19 @@ spring:
     password: chatbot2025@
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
-      connection-timeout: 30000
+      maximum-pool-size: 20           # 최대 연결 수
+      minimum-idle: 5                 # 최소 유휴 연결 수
+      connection-timeout: 20000       # 연결 타임아웃 (20초)
+      idle-timeout: 600000           # 유휴 연결 타임아웃 (10분)
+      max-lifetime: 1800000          # 연결 최대 생명주기 (30분)
+      leak-detection-threshold: 60000 # 연결 누수 감지 (60초)
+      validation-timeout: 5000        # 연결 검증 타임아웃 (5초)
+      
+  # 캐시 설정
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=1000,expireAfterWrite=30m,expireAfterAccess=10m,recordStats
 
 server:
   port: 9780
