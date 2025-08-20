@@ -11,8 +11,9 @@ Spring Boot 3.x + Vue 3 + PostgreSQL + MyBatis 기반의 **시나리오형 ChatB
 |----|------|--------|------|
 | 1  | 프로젝트 시작하기 | `series/01-project-setup` | ✅ 완료 |
 | 2  | 데이터베이스 설계 | `series/02-database-design` | ✅ 완료 |
-| 3  | 시나리오 관리 시스템 | `series/03-scenario-system` | ⏳ 진행 중 |
-| 4  | 실시간 채팅 (WebSocket) | `series/04-websocket-chat` | ⏳ 예정 |
+| 3  | 시나리오 관리 시스템 | `series/03-scenario-system` | ✅ 완료 |
+| 4  | 실시간 채팅 (WebSocket) | `series/04-websocket-chat` | ⏳ 진행 중 |
+| 5  | 일반대화 처리 | `series/05-intent-recognition` | ⏳ 예정 |
 
 > 📌 각 시리즈 완료 시 `series-XX-complete` 태그를 생성하고, Velog에 상세 구현 과정을 게시합니다.
 
@@ -30,6 +31,10 @@ Spring Boot 3.x + Vue 3 + PostgreSQL + MyBatis 기반의 **시나리오형 ChatB
 - JSONB를 활용한 **조건부 분기** 시스템
 - Self-Referencing으로 단계별 연결 관리
 - **9개 도메인 모델** 및 MyBatis 매퍼 완성
+
+### ✅ 3편: 시나리오 : 대화의 흐름 설계
+- 복잡한 조건부 분기는 하지 않음. 정말 간단한 기능만 구현
+- 시나리오 실행 엔진 (executeStep 메서드)
 
 ---
 
@@ -152,5 +157,5 @@ docs[02]: 데이터베이스 설계 문서 업데이트
 
 ---
 
-**📖 현재 진행 상황**: 2편 완료, 3편 진행 중  
+**📖 현재 진행 상황**: 3편 완료, 4편 진행 중  
 **🎯 다음 목표**: 시나리오 실행 엔진 완성 및 실제 대화 테스트
