@@ -37,6 +37,10 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
     implementation("org.postgresql:postgresql")
     implementation("org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.5")
+    
+    // --- Cache
+    implementation("org.springframework.boot:spring-boot-starter-cache")
+    implementation("com.github.ben-manes.caffeine:caffeine")
 
     // --- JSON
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")

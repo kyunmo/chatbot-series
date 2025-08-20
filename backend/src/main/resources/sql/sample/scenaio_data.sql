@@ -25,3 +25,8 @@ SELECT setval('user_account_id_seq', COALESCE((SELECT MAX(id) FROM user_account)
 SELECT setval('bots_id_seq', COALESCE((SELECT MAX(id) FROM bots), 1));
 SELECT setval('scenarios_id_seq', COALESCE((SELECT MAX(id) FROM scenarios), 1));
 SELECT setval('scenario_steps_id_seq', COALESCE((SELECT MAX(id) FROM scenario_steps), 1));
+
+
+-- 자주 사용되는 쿼리 인덱스 추가
+CREATE INDEX idx_scenario_steps_scenario_start ON scenario_steps(scenario_id, is_start_step);
+CREATE INDEX idx_scenario_steps_next ON scenario_steps(next_step_id);
