@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moyam.chatbot.domain.scenario.repository.ScenarioStepMapper">
+
+    <resultMap id="scenarioStepResultMap" type="ScenarioStep">
+        <id property="id" column="id"/>
+        <result property="scenarioId" column="scenario_id"/>
+        <result property="stepType" column="step_type"/>
+        <result property="content" column="content"/>
+        <result property="inputType" column="input_type"/>
+        <result property="conditions" column="conditions" typeHandler="io.moyam.chatbot.config.JsonTypeHandler"/>
+        <result property="nextStepId" column="next_step_id"/>
+        <result property="isStartStep" column="is_start_step"/>
+        <result property="orderIndex" column="order_index"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="ScenarioStep" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO scenario_steps (scenario_id, step_type, content, input_type, conditions, 
+                                   next_step_id, is_start_step, order_index, created_at, updated_at)
+        VALUES (#{scenarioId}, #{stepType}, #{content}, #{inputType}, #{conditions}, 
+                #{nextStepId}, #{isStartStep}, #{orderIndex}, NOW(), NOW())
+    </insert>
+
+    <select id="findById" resultMap="scenarioStepResultMap">
+        SELECT id, scenario_id, step_type, content, input_type, conditions, 
+               next_step_id, is_start_step, order_index, created_at, updated_at
+        FROM scenario_steps
+        WHERE id = #{id}
+    </select>
+
+    <select id="findByScenarioId" resultMap="scenarioStepResultMap">
+        SELECT id, scenario_id, step_type, content, input_type, conditions, 
+               next_step_id, is_start_step, order_index, created_at, updated_at
+        FROM scenario_steps
+        WHERE scenario_id = #{scenarioId}
+        ORDER BY order_index ASC
+    </select>
+
+    <select id="findStartStep" resultMap="scenarioStepResultMap">
+        SELECT id, scenario_id, step_type, content, input_type, conditions, 
+               next_step_id, is_start_step, order_index, created_at, updated_at
+        FROM scenario_steps
+        WHERE scenario_id = #{scenarioId} AND is_start_step = true
+        LIMIT 1
+    </select>
+
+    <select id="findNextStep" resultMap="scenarioStepResultMap">
+        SELECT id, scenario_id, step_type, content, input_type, conditions, 
+               next_step_id, is_start_step, order_index, created_at, updated_at
+        FROM scenario_steps
+        WHERE id = (
+            SELECT next_step_id FROM scenario_steps WHERE id = #{currentStepId}
+        )
+    </select>
+
+    <update id="update" parameterType="ScenarioStep">
+        UPDATE scenario_steps 
+        SET step_type = #{stepType}, 
+            content = #{content}, 
+            input_type = #{inputType},
+            conditions = #{conditions},
+            next_step_id = #{nextStepId},
+            is_start_step = #{isStartStep},
+            order_index = #{orderIndex},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM scenario_steps WHERE id = #{id}
+    </delete>
+
+</mapper>
