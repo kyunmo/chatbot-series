@@ -1,14 +1,18 @@
 package io.moyam.chatbot.domain.scenario.repository;
 
 import io.moyam.chatbot.domain.scenario.model.Scenario;
+import io.moyam.chatbot.domain.scenario.model.ScenarioStep;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Mapper
 public interface ScenarioMapper {
+
+    // CRUD
     void insert(Scenario scenario);
     Optional<Scenario> findById(@Param("id") Long id);
     List<Scenario> findByBotId(@Param("botId") Long botId);

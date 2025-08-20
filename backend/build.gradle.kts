@@ -31,6 +31,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-websocket")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-mail")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
 
     // --- Database
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
@@ -41,12 +42,24 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
 
+    // --- Swagger/OpenAPI
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:2.6.0")
+
+
     // --- Utilities
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
+
     implementation("org.apache.commons:commons-lang3")
     implementation("commons-io:commons-io:2.15.1")
     implementation("com.google.guava:guava:33.2.1-jre")
+
+    // slf4j-api와 충돌하는 의존성 제외
+    configurations.all {
+        exclude(group = "org.slf4j", module = "slf4j-nop")
+        exclude(group = "org.slf4j", module = "jul-to-slf4j")
+    }
 
     // --- Dev
     developmentOnly("org.springframework.boot:spring-boot-devtools")

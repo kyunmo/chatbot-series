@@ -3,7 +3,7 @@
 
 <mapper namespace="io.moyam.chatbot.domain.scenario.repository.ScenarioMapper">
 
-    <resultMap id="scenarioResultMap" type="io.moyam.chatbot.domain.scenario.model.Scenario">
+    <resultMap id="scenarioResultMap" type="Scenario">
         <id property="id" column="id"/>
         <result property="botId" column="bot_id"/>
         <result property="name" column="name"/>
@@ -14,7 +14,7 @@
         <result property="updatedAt" column="updated_at"/>
     </resultMap>
 
-    <insert id="insert" parameterType="io.moyam.chatbot.domain.scenario.model.Scenario" useGeneratedKeys="true" keyProperty="id">
+    <insert id="insert" parameterType="Scenario" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO scenarios (bot_id, name, description, start_step_id, is_default, created_at, updated_at)
         VALUES (#{botId}, #{name}, #{description}, #{startStepId}, #{isDefault}, NOW(), NOW())
     </insert>
@@ -32,7 +32,7 @@
         ORDER BY created_at DESC
     </select>
 
-    <update id="update" parameterType="io.moyam.chatbot.domain.scenario.model.Scenario">
+    <update id="update" parameterType="Scenario">
         UPDATE scenarios
         SET name = #{name},
             description = #{description},
