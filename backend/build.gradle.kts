@@ -42,6 +42,10 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-cache")
     implementation("com.github.ben-manes.caffeine:caffeine")
 
+    // --- socket
+    implementation("org.springframework:spring-websocket")
+    implementation("org.springframework:spring-messaging")
+
     // --- JSON
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
