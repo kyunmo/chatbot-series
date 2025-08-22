@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -26,6 +27,10 @@ public class ScenarioService {
 
     private final ScenarioMapper scenarioMapper;
     private final ScenarioStepMapper scenarioStepMapper;
+    private final ConditionEvaluator conditionEvaluator;
+    private final MessageTemplateProcessor templateProcessor;
+    private final VariableCollector variableCollector;
+    
     private final Map<String, ConversationContext> conversationContexts = new ConcurrentHashMap<>();
 
     /**
@@ -33,8 +38,15 @@ public class ScenarioService {
      */
     public ScenarioExecutionResult startScenario(String sessionId, Long scenarioId) {
         try {
+            log.info("Starting scenario {} for session {}", scenarioId, sessionId);
+            
             ScenarioStep startStep = getStartScenarioStep(scenarioId);
+            log.info("Found start step: id={}, content={}", startStep.getId(), startStep.getContent());
+            
+            // 기존 컨텍스트 완전 삭제
             clearContext(sessionId);
+            
+            // Step 1부터 강제 시작 (사용자 입력 없이)
             return executeStep(sessionId, startStep.getId(), null);
         } catch (Exception e) {
             log.error("Error starting scenario {} for session {}", scenarioId, sessionId, e);
@@ -43,62 +55,189 @@ public class ScenarioService {
     }
 
     /**
-     * 시나리오 단계 실행
+     * 시나리오 단계 실행 (고도화된 버전)
      */
     public ScenarioExecutionResult executeStep(String sessionId, Long stepId, String userInput) {
         try {
             // 1. 현재 단계 조회
             ScenarioStep currentStep = getScenarioStepSafely(stepId);
             if (currentStep == null) {
-                return createErrorResult("죄송합니다. 올바르지 않은 단계입니다. 처음부터 다시 시작해주세요.");
+                return createErrorResult("올바르지 않은 단계입니다. 처음부터 다시 시작해주세요.");
             }
 
-            // 2. 대화 컨텍스트 조회/생성
-            ConversationContext context = conversationContexts.computeIfAbsent(sessionId,
-                    k -> ConversationContext.builder()
-                            .scenarioId(currentStep.getScenarioId())
-                            .currentStepId(stepId)
-                            .variables(new HashMap<>())
-                            .lastInteraction(LocalDateTime.now())
-                            .build());
+            // 2. 컨텍스트 조회/생성
+            ConversationContext context = getOrCreateContext(sessionId, currentStep);
 
-            // 3. 사용자 입력 처리
-            if (userInput != null) {
-                userInput = userInput.trim();
-
+            // 3. 변수 수집 (사용자 입력이 있는 경우)
+            if (userInput != null && !userInput.trim().isEmpty()) {
                 // 공통 명령어 처리
                 if (isCommonCommand(userInput)) {
                     return handleCommonCommand(sessionId, userInput, context);
                 }
+                
+                log.debug("Processing user input '{}' for step {}", userInput, currentStep.getId());
+                
+                // 변수 수집 및 검증
+                boolean hasVariableMapping = hasVariableMapping(currentStep);
+                log.debug("Step {} has variable mapping: {}", currentStep.getId(), hasVariableMapping);
+                
+                if (hasVariableMapping) {
+                    if (!variableCollector.collectVariable(currentStep, userInput, context)) {
+                        String validationMessage = variableCollector.getValidationMessage(currentStep);
+                        return createRetryResult(currentStep, validationMessage);
+                    }
+                    
+                    log.debug("Variables after collection: {}", context.getVariables());
+                    log.debug("Context userName: {}", context.getUserName());
+                    
+                    // 변수 수집 후 자동으로 다음 단계로 진행 (variable_mapping이 있는 경우)
+                    if (currentStep.getNextStepId() != null) {
+                        ScenarioStep nextStep = getScenarioStepSafely(currentStep.getNextStepId());
+                        if (nextStep != null) {
+                            log.debug("Auto-advancing to next step {} after variable collection", nextStep.getId());
+                            
+                            // 컨텍스트 업데이트
+                            context.setCurrentStepId(nextStep.getId());
+                            context.setLastInteraction(LocalDateTime.now());
+                            if (context.getVisitedSteps() == null) {
+                                context.setVisitedSteps(new java.util.ArrayList<>());
+                            }
+                            context.getVisitedSteps().add(currentStep.getId().toString());
+                            context.getVariables().put("lastInput", userInput.trim());
 
-                // 입력값 검증
-                if (!isValidInput(currentStep, userInput)) {
-                    return createRetryResult(currentStep, "올바른 형식으로 입력해주세요. " + getInputGuide(currentStep));
+                            // 업데이트된 컨텍스트로 템플릿 처리
+                            String processedMessage = templateProcessor.processTemplate(nextStep.getContent(), context);
+                            List<ChoiceOption> choices = conditionEvaluator.extractChoices(nextStep);
+
+                            log.debug("Next step message processed: {}", processedMessage);
+
+                            return ScenarioExecutionResult.builder()
+                                .currentStep(nextStep)
+                                .nextStep(null) // 자동 진행 완료
+                                .context(context)
+                                .isCompleted(false)
+                                .choices(choices)
+                                .processedMessage(processedMessage)
+                                .build();
+                        }
+                    }
+                } else {
+                    // 변수 수집이 아닌 경우: 조건 평가 수행
+                    ScenarioStep nextStep = conditionEvaluator.evaluateConditions(currentStep, userInput, context);
+
+                    if (nextStep != null) {
+                        // 다음 단계로 바로 진행
+                        context.setCurrentStepId(nextStep.getId());
+                        context.setLastInteraction(LocalDateTime.now());
+                        if (context.getVisitedSteps() == null) {
+                            context.setVisitedSteps(new java.util.ArrayList<>());
+                        }
+                        context.getVisitedSteps().add(currentStep.getId().toString());
+                        context.getVariables().put("lastInput", userInput.trim());
+
+                        String processedMessage = templateProcessor.processTemplate(nextStep.getContent(), context);
+                        List<ChoiceOption> choices = conditionEvaluator.extractChoices(nextStep);
+
+                        return ScenarioExecutionResult.builder()
+                            .currentStep(nextStep)
+                            .nextStep(null) // 이미 진행 완료
+                            .context(context)
+                            .isCompleted(false)
+                            .choices(choices)
+                            .processedMessage(processedMessage)
+                            .build();
+                    } else {
+                        // 매칭되는 선택지가 없음
+                        String processedMessage = templateProcessor.processTemplate(currentStep.getContent(), context);
+                        List<ChoiceOption> choices = conditionEvaluator.extractChoices(currentStep);
+
+                        return ScenarioExecutionResult.builder()
+                            .currentStep(currentStep)
+                            .nextStep(null)
+                            .context(context)
+                            .isCompleted(false)
+                            .choices(choices)
+                            .processedMessage(processedMessage)
+                            .build();
+                    }
                 }
 
-                context.getVariables().put("lastInput", userInput);
             }
 
-            // 4. 다음 단계 결정
-            ScenarioStep nextStep = determineNextStep(currentStep, userInput, context);
+            // 사용자 입력이 없는 경우 (시나리오 시작 시)
+            String processedMessage = templateProcessor.processTemplate(currentStep.getContent(), context);
+            List<ChoiceOption> choices = conditionEvaluator.extractChoices(currentStep);
 
-            // 5. 컨텍스트 업데이트
-            if (nextStep != null) {
-                context.setCurrentStepId(nextStep.getId());
-            }
-            context.setLastInteraction(LocalDateTime.now());
+            // 컨텍스트 업데이트
+            updateContext(context, currentStep, null, userInput);
 
             return ScenarioExecutionResult.builder()
-                    .currentStep(currentStep)
-                    .nextStep(nextStep)
-                    .context(context)
-                    .isCompleted(nextStep == null)
-                    .build();
-
+                .currentStep(currentStep)
+                .nextStep(null)
+                .context(context)
+                .isCompleted(false)
+                .choices(choices)
+                .processedMessage(processedMessage)
+                .build();
+                
         } catch (Exception e) {
             log.error("Error executing step {} for session {}", stepId, sessionId, e);
-            return createErrorResult("죄송합니다. 처리 중 오류가 발생했습니다. 처음부터 다시 시작해주세요.");
+            return createErrorResult("처리 중 오류가 발생했습니다.");
         }
+    }
+
+    /**
+     * 컨텍스트 조회 또는 생성
+     */
+    private ConversationContext getOrCreateContext(String sessionId, ScenarioStep currentStep) {
+        return conversationContexts.computeIfAbsent(sessionId, k -> {
+            log.info("Creating new context for session {} with step {}", sessionId, currentStep.getId());
+            
+            ConversationContext context = ConversationContext.builder()
+                .scenarioId(currentStep.getScenarioId())
+                .currentStepId(currentStep.getId())
+                .variables(new HashMap<>())
+                .systemVariables(new HashMap<>())
+                .lastInteraction(LocalDateTime.now())
+                .build();
+            
+            // 세션 ID를 변수에 저장
+            context.getVariables().put("sessionId", sessionId);
+            
+            log.debug("New context created: currentStepId={}, variables={}", 
+                     context.getCurrentStepId(), context.getVariables());
+            
+            return context;
+        });
+    }
+    
+    /**
+     * 컨텍스트 업데이트
+     */
+    private void updateContext(ConversationContext context, ScenarioStep currentStep, 
+                             ScenarioStep nextStep, String userInput) {
+        // 다음 단계가 있으면 컨텍스트 업데이트
+        if (nextStep != null) {
+            log.debug("Updating context currentStepId from {} to {}",
+                     context.getCurrentStepId(), nextStep.getId());
+            context.setCurrentStepId(nextStep.getId());
+        }
+
+        context.setLastInteraction(LocalDateTime.now());
+
+        // 방문한 단계 기록
+        if (context.getVisitedSteps() == null) {
+            context.setVisitedSteps(new java.util.ArrayList<>());
+        }
+        context.getVisitedSteps().add(currentStep.getId().toString());
+
+        // 마지막 입력 저장
+        if (userInput != null && !userInput.trim().isEmpty()) {
+            context.getVariables().put("lastInput", userInput.trim());
+        }
+
+        log.debug("Context updated: currentStepId={}, variables={}",
+                 context.getCurrentStepId(), context.getVariables());
     }
 
     /**
@@ -157,8 +296,24 @@ public class ScenarioService {
 
     @Cacheable(value = "scenarioSteps", key = "'start_' + #scenarioId")
     public ScenarioStep getStartScenarioStep(Long scenarioId) {
-        return scenarioStepMapper.findStartStep(scenarioId)
-                .orElseThrow(() -> new IllegalArgumentException("No start step found for scenario: " + scenarioId));
+        try {
+            // 시작 단계 조회
+            Optional<ScenarioStep> startStep = scenarioStepMapper.findStartStep(scenarioId);
+            
+            if (startStep.isPresent()) {
+                log.info("Found start step: id={}, content={}", 
+                    startStep.get().getId(), startStep.get().getContent());
+                return startStep.get();
+            } else {
+                log.warn("No start step found for scenario {}, using step 1 as fallback", scenarioId);
+                // 시작 단계가 없으면 Step 1을 시작 단계로 사용
+                return scenarioStepMapper.findById(1L)
+                    .orElseThrow(() -> new IllegalArgumentException("No start step found for scenario: " + scenarioId));
+            }
+        } catch (Exception e) {
+            log.error("Error finding start step for scenario {}", scenarioId, e);
+            throw new IllegalArgumentException("No start step found for scenario: " + scenarioId);
+        }
     }
 
     @Cacheable(value = "scenarioSteps", key = "'next_' + #currentStepId")
@@ -177,37 +332,18 @@ public class ScenarioService {
             return null;
         }
     }
-
+    
     /**
-     * 다음 단계 결정 (조건부 분기 처리)
+     * 변수 매핑이 있는지 확인
      */
-    private ScenarioStep determineNextStep(ScenarioStep currentStep, String userInput, ConversationContext context) {
-        // 메인 메뉴 분기 처리
-        if (currentStep.getId() == 2L && userInput != null) {
-            switch (userInput.trim()) {
-                case "1": return getScenarioStepSafely(3L);  // 일정 관리
-                case "2": return getScenarioStepSafely(6L);  // 메모 작성
-                case "3": return getScenarioStepSafely(9L);  // 계산
-                case "4": return getScenarioStepSafely(12L); // 도움말
-                default: return null;
-            }
+    @SuppressWarnings("unchecked")
+    private boolean hasVariableMapping(ScenarioStep step) {
+        if (step.getConditions() == null) {
+            return false;
         }
-
-        // 일정 메뉴 분기 처리
-        if (currentStep.getId() == 4L && userInput != null) {
-            switch (userInput.trim()) {
-                case "1": case "2": case "3": return getScenarioStepSafely(5L);  // 일정 조회
-                case "4": return getScenarioStepSafely(2L);  // 메인 메뉴
-                default: return null;
-            }
-        }
-
-        // 기본: next_step_id 따라가기
-        if (currentStep.getNextStepId() != null) {
-            return getScenarioStepSafely(currentStep.getNextStepId());
-        }
-
-        return null;
+        
+        Map<String, Object> variableMapping = (Map<String, Object>) step.getConditions().get("variable_mapping");
+        return variableMapping != null && !variableMapping.isEmpty();
     }
 
     /**
@@ -238,53 +374,6 @@ public class ScenarioService {
     }
 
     /**
-     * 입력값 검증
-     */
-    private boolean isValidInput(ScenarioStep step, String input) {
-        if (input == null || input.trim().isEmpty()) {
-            return false;
-        }
-
-        switch (step.getInputType()) {
-            case CHOICE:
-                if (step.getId() == 2L || step.getId() == 4L) {
-                    return input.matches("[1-4]");
-                }
-                return true;
-            case NUMBER:
-                return input.matches("\\d+");
-            case EMAIL:
-                return input.contains("@");
-            case YES_NO:
-                return input.matches("(?i)(예|아니오|yes|no|y|n)");
-            case TEXT:
-            default:
-                return true;
-        }
-    }
-
-    /**
-     * 입력 가이드 메시지
-     */
-    private String getInputGuide(ScenarioStep step) {
-        switch (step.getInputType()) {
-            case CHOICE:
-                if (step.getId() == 2L || step.getId() == 4L) {
-                    return "1, 2, 3, 4 중 하나를 입력해주세요.";
-                }
-                return "제시된 선택지 중 하나를 선택해주세요.";
-            case NUMBER:
-                return "숫자만 입력해주세요.";
-            case EMAIL:
-                return "올바른 이메일 형식으로 입력해주세요.";
-            case YES_NO:
-                return "예 또는 아니오로 답변해주세요.";
-            default:
-                return "적절한 내용을 입력해주세요.";
-        }
-    }
-
-    /**
      * 오류 결과 생성
      */
     private ScenarioExecutionResult createErrorResult(String message) {
@@ -300,6 +389,7 @@ public class ScenarioService {
                 .nextStep(null)
                 .context(null)
                 .isCompleted(true)
+                .errorMessage(message)
                 .build();
     }
 
@@ -307,12 +397,15 @@ public class ScenarioService {
      * 재시도 결과 생성
      */
     private ScenarioExecutionResult createRetryResult(ScenarioStep currentStep, String additionalMessage) {
+        String retryMessage = currentStep.getContent() + "\n\n" + additionalMessage;
+        
         ScenarioStep retryStep = ScenarioStep.builder()
                 .id(currentStep.getId())
-                .content(currentStep.getContent() + "\n\n" + additionalMessage)
+                .content(retryMessage)
                 .stepType(currentStep.getStepType())
                 .inputType(currentStep.getInputType())
                 .nextStepId(currentStep.getNextStepId())
+                .conditions(currentStep.getConditions())
                 .build();
 
         return ScenarioExecutionResult.builder()
@@ -320,6 +413,7 @@ public class ScenarioService {
                 .nextStep(null)
                 .context(null)
                 .isCompleted(false)
+                .processedMessage(retryMessage)
                 .build();
     }
 
@@ -339,6 +433,7 @@ public class ScenarioService {
                 .nextStep(null)
                 .context(null)
                 .isCompleted(true)
+                .processedMessage(message)
                 .build();
     }
 }
