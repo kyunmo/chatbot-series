@@ -1,10 +1,10 @@
 <template>
   <div class="health-page">
     <h2>System Health Check</h2>
-    <HealthCheck />
+    <ChatWindow />
   </div>
 </template>
 
 <script setup lang="ts">
-import HealthCheck from '@/components/HealthCheck.vue'
+import ChatWindow from '@/components/ChatWindow.vue'
 </script>
