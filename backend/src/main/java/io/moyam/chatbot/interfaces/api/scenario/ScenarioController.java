@@ -41,15 +41,14 @@ public class ScenarioController {
         
         return scenarioService.createScenario(scenario);
     }
-    
-    // 🎯 핵심: 시나리오 실행
-    @PostMapping("/{scenarioId}/start")
+
+/*    @PostMapping("/{scenarioId}/start")
     public ScenarioExecutionResult startScenario(
             @PathVariable Long scenarioId,
             @RequestParam String sessionId) {
         
         return scenarioService.startScenario(sessionId, scenarioId);
-    }
+    }*/
     
     @PostMapping("/steps/{stepId}/execute")
     public ScenarioExecutionResult executeStep(
