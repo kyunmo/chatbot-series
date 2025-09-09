@@ -1,6 +1,10 @@
 package io.moyam.chatbot.interfaces.api.websocket;
 
 import io.moyam.chatbot.domain.conversation.model.ConversationContext;
+import io.moyam.chatbot.domain.conversation.service.IntentRecognizer;
+import io.moyam.chatbot.domain.conversationblock.service.ConversationBlockService;
+import io.moyam.chatbot.domain.intent.model.IntentAnalysisResult;
+import io.moyam.chatbot.domain.scenario.model.ChoiceOption;
 import io.moyam.chatbot.domain.scenario.model.ScenarioExecutionResult;
 import io.moyam.chatbot.domain.scenario.service.ScenarioService;
 import io.moyam.chatbot.interfaces.api.scenario.request.StartScenarioRequest;
@@ -14,6 +18,7 @@ import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.stereotype.Controller;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Controller
 @RequiredArgsConstructor
@@ -21,6 +26,8 @@ import java.time.LocalDateTime;
 public class ChatWebSocketController {
 
     private final ScenarioService scenarioService;
+    private final IntentRecognizer intentRecognizer;  // 5편 추가: 의도분석 엔진
+    private final ConversationBlockService conversationBlockService;  // 5편 추가
 
     @MessageMapping("/chat/{sessionId}")
     @SendTo("/topic/chat/{sessionId}")
@@ -65,9 +72,9 @@ public class ChatWebSocketController {
                 return ChatResponse.fromScenarioResult(result, sessionId);
             }
             
-            // 일반 대화 처리
+            // 일반 대화 처리 - 5편 개선: 의도분석 엔진 사용
             log.debug("Processing general conversation for session {}", sessionId);
-            return generateSmartChatResponse(request.getMessage(), sessionId);
+            return handleGeneralConversation(request.getMessage(), sessionId);
             
         } catch (Exception e) {
             log.error("Error processing message for session {}: {}", sessionId, e.getMessage(), e);
@@ -78,100 +85,114 @@ public class ChatWebSocketController {
     }
 
     /**
-     * 응답 생성
+     * 일반 대화 처리 - 5편 핵심 개선: 의도분석 엔진 사용
+     * 기존의 단순한 키워드 매칭을 IntentRecognizer로 고도화
      */
-    private ChatResponse generateSmartChatResponse(String message, String sessionId) {
-        String lowerMessage = message.toLowerCase().trim();
-        
-        // 시나리오 시작 요청
-        if (lowerMessage.contains("시작") || lowerMessage.contains("start") || 
-            lowerMessage.contains("데모") || lowerMessage.equals("1")) {
-            return startDefaultScenario(sessionId);
-        }
-
-        // 인사말 처리 (개인화된 응답)
-        if (lowerMessage.contains("안녕") || lowerMessage.contains("hi") || 
-            lowerMessage.contains("hello") || lowerMessage.contains("하이")) {
+    private ChatResponse handleGeneralConversation(String message, String sessionId) {
+        try {
+            // 의도분석 엔진으로 사용자 입력 분석
+            IntentAnalysisResult analysis = intentRecognizer.analyze(message);
             
+            log.debug("Intent analysis result for session {}: type={}, confidence={}", 
+                     sessionId, analysis.getIntentType(), analysis.getConfidence());
+
+            // 시나리오 시작 요청 감지 시 자동 시작
+            if (intentRecognizer.isStartScenarioIntent(analysis)) {
+                log.info("Auto-starting scenario for session {} based on intent analysis", sessionId);
+                return startDefaultScenario(sessionId);
+            }
+
+            // FALLBACK 처리 - BasicBlockService 사용
+            if ("FALLBACK".equals(analysis.getIntentType())) {
+                log.debug("Processing FALLBACK response for session {}", sessionId);
+                return handleFallbackResponse(sessionId, analysis);
+            }
+
+            // 일반 응답 생성 (BASIC_CONVERSATION, KNOWLEDGE 등)
+            String responseMessage = analysis.getResponseMessage();
+            if (responseMessage == null || responseMessage.trim().isEmpty()) {
+                log.warn("No response message found for analysis: {}", analysis);
+                return handleFallbackResponse(sessionId, analysis);
+            }
+
             return ChatResponse.builder()
-                .message("안녕하세요! 저는 AI 개인비서입니다.\n\n무엇을 도와드릴까요?\n\n아래 버튼을 클릭하거나 '시작'이라고 말씀해주세요!")
+                .message(responseMessage)
                 .sessionId(sessionId)
                 .isFromBot(true)
-                .messageType("info")
-                .choices(java.util.Arrays.asList(
-                    io.moyam.chatbot.domain.scenario.model.ChoiceOption.builder()
-                        .value("start_demo")
-                        .label("시나리오 시작하기")
-                        .build(),
-                    io.moyam.chatbot.domain.scenario.model.ChoiceOption.builder()
-                        .value("help")
-                        .label("도움말 보기")
-                        .build()
-                ))
+                .messageType("text")
+                .confidence(analysis.getConfidence())  // 5편 추가: 확신도 제공
+                .choices(generateSuggestedActions(analysis))
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        } catch (Exception e) {
+            log.error("Error in intent analysis for session {}: {}", sessionId, e.getMessage(), e);
+            return ChatResponse.error("죄송합니다. 처리 중 오류가 발생했습니다.");
+        }
+    }
+
+    /**
+     * FALLBACK 응답 처리 - BasicBlockService 사용
+     */
+    private ChatResponse handleFallbackResponse(String sessionId, IntentAnalysisResult analysis) {
+        try {
+            // TODO: BasicBlockService 연동으로 DB에서 FALLBACK 메시지 가져오기
+            // BasicBlockResponse fallbackBlock = basicBlockService.getRandomBlockByType("FALLBACK");
+            // String fallbackMessage = fallbackBlock.getContent();
+            
+            // 임시: 하드코딩된 FALLBACK 메시지들 중 랜덤 선택
+            String[] fallbackMessages = {
+                "잘 모르겠어요! 😅\n\n다른 방식으로 말씀해주시거나 아래 버튼을 클릭해보세요!",
+                "죄송해요, 정확히 이해하지 못했어요. 🤔\n\n더 간단하게 말씀해주시면 도와드릴게요!",
+                "음... 그 말씀은 잘 모르겠네요. 😊\n\n\"시작\"이라고 말씀하시면 기능을 체험해보실 수 있어요!"
+            };
+
+            // 랜덤 선택
+            int randomIndex = (int) (Math.random() * fallbackMessages.length);
+            String fallbackMessage = fallbackMessages[randomIndex];
+
+            log.debug("Generated FALLBACK response for session {}: message length={}", 
+                     sessionId, fallbackMessage.length());
+
+            return ChatResponse.builder()
+                .message(fallbackMessage)
+                .sessionId(sessionId)
+                .isFromBot(true)
+                .messageType("text")
+                .confidence(0.0)  // FALLBACK은 항상 확신도 0.0
+                .choices(generateSuggestedActions(analysis))
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        } catch (Exception e) {
+            log.error("Error generating FALLBACK response for session {}: {}", sessionId, e.getMessage(), e);
+            // 최후의 수단: 기본 메시지
+            return ChatResponse.builder()
+                .message("죄송해요, 잘 모르겠습니다. 😅 \"시작\"이라고 말씀해주세요!")
+                .sessionId(sessionId)
+                .isFromBot(true)
+                .messageType("text")
+                .confidence(0.0)
                 .timestamp(LocalDateTime.now())
                 .build();
         }
+    }
 
-        // 도움 요청
-        if (lowerMessage.contains("도움") || lowerMessage.contains("help") || 
-            lowerMessage.contains("헬프") || lowerMessage.equals("?")) {
-            
-            return ChatResponse.info(
-                "도움말\n\n" +
-                "이 ChatBot은 다음과 같은 서비스를 제공합니다:\n" +
-                "- 일정 관리: 오늘/내일 일정 확인 및 추가\n" +
-                "- 메모 작성: 간단한 메모 저장\n" +
-                "- 계산기: 사칙연산 계산\n" +
-                "- 설정: 봇 개인화 설정\n\n" +
-                "사용법: '시작'이라고 입력하거나 아래 버튼을 클릭하세요!",
-                sessionId
-            );
-        }
-
-        // 감사 인사
-        if (lowerMessage.contains("고마") || lowerMessage.contains("감사") || 
-            lowerMessage.contains("thank") || lowerMessage.contains("굿")) {
-            
-            return ChatResponse.info(
-                "천만에요! 언제든 도움이 필요하시면 말씀해주세요.\n\n" +
-                "다른 기능을 사용해보시겠어요?",
-                sessionId
-            );
-        }
-
-        // 종료 관련
-        if (lowerMessage.contains("종료") || lowerMessage.contains("끝") || 
-            lowerMessage.contains("bye") || lowerMessage.contains("바이")) {
-            
-            return ChatResponse.info(
-                "안녕히 가세요! 언제든 다시 찾아주세요.\n\n" +
-                "새로운 대화를 시작하시려면 '시작'이라고 말씀해주세요.",
-                sessionId
-            );
-        }
-
-        // 기본 응답
-        return ChatResponse.builder()
-            .message("잘 모르겠습니다.\n\n" +
-                    "이런 것들을 시도해보세요:\n" +
-                    "• '시작' - 시나리오 데모 시작\n" +
-                    "• '도움말' - 사용 가능한 기능 보기\n" +
-                    "• '안녕하세요' - 인사하기")
-            .sessionId(sessionId)
-            .isFromBot(true)
-            .messageType("text")
-            .choices(java.util.Arrays.asList(
-                io.moyam.chatbot.domain.scenario.model.ChoiceOption.builder()
-                    .value("start_demo")
-                    .label("시나리오 시작")
-                    .build(),
-                io.moyam.chatbot.domain.scenario.model.ChoiceOption.builder()
-                    .value("help")
-                    .label("도움말")
-                    .build()
-            ))
-            .timestamp(LocalDateTime.now())
-            .build();
+    /**
+     * 의도분석 결과에 따른 제안 액션 생성
+     */
+    private List<ChoiceOption> generateSuggestedActions(IntentAnalysisResult analysis) {
+        // 기본 제안 버튼 (모든 응답에 공통 적용)
+        return List.of(
+            ChoiceOption.builder()
+                .value("start_demo")
+                .label("🚀 시나리오 시작")
+                .build(),
+            ChoiceOption.builder()
+                .value("help")
+                .label("❓ 도움말")
+                .build()
+        );
     }
 
     /**
@@ -182,7 +203,7 @@ public class ChatWebSocketController {
             ScenarioExecutionResult result = scenarioService.startScenario(sessionId, 1L);
             return ChatResponse.fromScenarioResult(result, sessionId);
         } catch (Exception e) {
-            log.error("Error starting default scenario for session {}", sessionId, e);
+            log.error("Error starting default scenario for session {}: {}", sessionId, e.getMessage(), e);
             return ChatResponse.error("시나리오를 시작할 수 없습니다. 잠시 후 다시 시도해주세요.");
         }
     }
