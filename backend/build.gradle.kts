@@ -62,6 +62,10 @@ dependencies {
     implementation("org.apache.commons:commons-lang3")
     implementation("commons-io:commons-io:2.15.1")
     implementation("com.google.guava:guava:33.2.1-jre")
+    
+    // common
+    implementation("org.apache.commons:commons-text:1.12.0")
+    implementation("org.apache.commons:commons-collections4:4.5.0-M2")
 
     // slf4j-api와 충돌하는 의존성 제외
     configurations.all {

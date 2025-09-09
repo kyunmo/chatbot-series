@@ -31,10 +31,18 @@ public class ChatResponse {
     private Map<String, Object> variables;  // 변수 정보 (디버깅용)
     private String processedMessage;  // 변수 치환된 메시지
     
+    // 의도분석 관련
+    private Double confidence;        // 의도분석 확신도 (0.0 ~ 1.0)
+    private String intentType;        // 의도 타입 (BASIC_CONVERSATION, FALLBACK 등)
+    
     // 레거시 지원
     private List<String> quickReplies; // 빠른 답변 옵션 (레거시)
 
     public static ChatResponse fromScenarioResult(ScenarioExecutionResult result, String sessionId) {
+        if (result == null) {
+            return ChatResponse.error("시나리오 실행 결과가 없습니다.");
+        }
+        
         // 메시지 타입 결정
         String messageType = "text";
         if (result.getChoices() != null && !result.getChoices().isEmpty()) {
@@ -43,15 +51,21 @@ public class ChatResponse {
             messageType = "error";
         }
         
-        // 표시할 메시지 결정 (processedMessage 우선)
-        String displayMessage = result.getProcessedMessage() != null ? 
-            result.getProcessedMessage() : result.getCurrentStep().getContent();
+        // 표시할 메시지 결정 (null 체크 추가)
+        String displayMessage = null;
+        if (result.getProcessedMessage() != null) {
+            displayMessage = result.getProcessedMessage();
+        } else if (result.getCurrentStep() != null) {
+            displayMessage = result.getCurrentStep().getContent();
+        } else {
+            displayMessage = "시나리오 단계를 찾을 수 없습니다.";
+        }
         
         return ChatResponse.builder()
                 .message(displayMessage)
                 .sessionId(sessionId)
                 .isFromBot(true)
-                .currentStepId(result.getCurrentStep().getId())
+                .currentStepId(result.getCurrentStep() != null ? result.getCurrentStep().getId() : null)
                 .nextStepId(result.getNextStep() != null ? result.getNextStep().getId() : null)
                 .scenarioId(result.getContext() != null ? result.getContext().getScenarioId() : null)
                 .isScenarioEnd(result.isCompleted())
@@ -68,6 +82,7 @@ public class ChatResponse {
                 .message(errorMessage)
                 .isFromBot(true)
                 .messageType("error")
+                .confidence(0.0)  // 에러는 확신도 0
                 .timestamp(LocalDateTime.now())
                 .build();
     }
@@ -78,6 +93,22 @@ public class ChatResponse {
                 .sessionId(sessionId)
                 .isFromBot(true)
                 .messageType("info")
+                .confidence(1.0)  // 정보성 메시지는 확신도 최대
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    public static ChatResponse fromIntentAnalysis(String message, String sessionId, 
+                                                 Double confidence, String intentType, 
+                                                 List<ChoiceOption> choices) {
+        return ChatResponse.builder()
+                .message(message)
+                .sessionId(sessionId)
+                .isFromBot(true)
+                .messageType("text")
+                .confidence(confidence)
+                .intentType(intentType)
+                .choices(choices != null ? choices : Collections.emptyList())
                 .timestamp(LocalDateTime.now())
                 .build();
     }
