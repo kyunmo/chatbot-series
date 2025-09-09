@@ -1,105 +1,150 @@
 # 🤖 Spring Boot ChatBot Series
 
 **재미로 해보는 Spring Boot ChatBot 개발 여정**  
-Spring Boot 3.x + Vue 3 + PostgreSQL + MyBatis 기반의 **시나리오형 ChatBot** 프로젝트입니다.  
+Spring Boot 3.x + Vue 3 + PostgreSQL + MyBatis 기반의 **ChatBot** 프로젝트입니다.  
 
 ---
 
 ## 📊 진행 현황
 
-| 편 | 제목 | 브랜치 | 상태 |
-|------|------|--------|------|
-| 1    | 프로젝트 시작하기 | `series/01-project-setup` | ✅ 완료 |
-| 2    | 데이터베이스 설계 | `series/02-database-design` | ✅ 완료 |
-| 3    | 시나리오 관리 시스템 | `series/03-scenario-system` | ✅ 완료 |
-| 4    | 실시간 채팅 (WebSocket)     | `series/04-websocket-chat`    | ✅ 완료 |
-| 4.5  | 시나리오 엔진 고도화         | `series/04.5-scenario-improverment` | ✅ 완료 |
-| 5    | 일반대화 처리                | `series/05-intent-recognition`| ⏳ 진행 중 |
+| 편 | 제목 | 핵심 기능 | 상태 |
+|------|------|----------|------|
+| 1    | 프로젝트 시작하기 | 환경 설정, 멀티모듈 구조 | ✅ 완료 |
+| 2    | 데이터베이스 설계 | JSONB 활용, 9개 도메인 | ✅ 완료 |
+| 3    | 시나리오 관리 시스템 | executeStep 엔진 | ✅ 완료 |
+| 4    | 실시간 채팅 (WebSocket) | STOMP 메시징 | ✅ 완료 |
+| 4.5  | 시나리오 엔진 고도화 | 조건부 분기, 변수 치환 | ✅ 완료 |
+| 5    | **의도분석과 일반대화** | **IntentRecognizer, 오타교정** | ✅ **완료** |
+| 6    | 지식베이스와 TF-IDF 검색 | 문서 검색, 유사도 계산 | 📋 예정 |
+| 7    | 봇 커스터마이징 | UI 옵션, 개성화 | 📋 예정 |
 
-> 📌 각 시리즈 완료 시 `series-XX-complete` 태그를 생성하고, Velog에 상세 구현 과정을 게시합니다.
+> 📌 각 시리즈 완료 시 series-XX-complete 태그를 생성하고, Velog에 상세 구현 과정을 게시합니다.
 
 ---
 
-## 완성된 기능들
+## 🎯 핵심 완성 기능들
 
 ### ✅ 1편: 프로젝트 기초 설정
-- Spring Boot 3.x + Gradle(Kotlin DSL) 멀티모듈 구조
-- PostgreSQL 연동 및 기본 환경 설정
-- Vue.js 3 프론트엔드 통합 빌드 시스템
+- **멀티모듈 구조**: Backend(Spring Boot) + Frontend(Vue.js) 통합
+- **PostgreSQL 연동**: Docker 기반 개발 환경
+- **Gradle Kotlin DSL**: 모던한 빌드 시스템
 
 ### ✅ 2편: 견고한 데이터베이스 설계
-- **시나리오 기반 대화 흐름** 테이블 설계
-- JSONB를 활용한 **조건부 분기** 시스템
-- Self-Referencing으로 단계별 연결 관리
-- **9개 도메인 모델** 및 MyBatis 매퍼 완성
+- **JSONB 활용**: 조건부 분기 및 메타데이터 저장
+- **9개 도메인 모델**: User, Bot, Scenario, Conversation 등
+- **MyBatis 매퍼**: 복잡한 쿼리 및 동적 SQL 처리
+- **Self-Referencing**: 시나리오 단계별 연결 관리
 
-### ✅ 3편: 시나리오 : 대화의 흐름 설계
-- 복잡한 조건부 분기는 하지 않음. 정말 간단한 기능만 구현
-- 시나리오 실행 엔진 (executeStep 메서드)
+### ✅ 3편: 시나리오 관리 시스템
+- **ScenarioService**: executeStep 메서드로 대화 흐름 실행
+- **단계별 진행**: 버튼 클릭 기반 선형 시나리오
+- **ConversationContext**: 메모리 기반 세션 상태 관리
+- **간단하고 명확한 구조**: 복잡한 분기 없이 핵심 기능 집중
 
 ### ✅ 4편: 실시간 채팅 (WebSocket)
-- STOMP 기반 WebSocket 설정 및 메시지 브로커 구성
-- **ChatWebSocketController**로 메시지 송수신 처리
-- 시나리오 엔진과 실시간 연동
-- 예외처리 및 기본 응답(인사말/도움말) 제공
-- 브라우저 UI와 연결된 간단한 데모 완성
+- **STOMP 프로토콜**: `/app/chat` 엔드포인트로 메시지 송수신
+- **ChatWebSocketController**: 시나리오 엔진과 실시간 연동
+- **기본 응답 처리**: 인사말, 도움말, 키워드 매칭
+- **브라우저 UI**: Vue.js와 WebSocket 연결 데모
 
 ### ✅ 4.5편: 시나리오 엔진 고도화
-- **ConditionEvaluator**: JSONB 기반 조건 처리
-- **MessageTemplateProcessor**: 변수 치환 시스템 (`${userName}`, `${today}`)
-- **동적 버튼 UI**: 프론트엔드에서 선택지 렌더링 및 처리
-- 확장된 샘플 시나리오 데이터 (버튼, 변수, 분기 포함)
-- 개인화된 대화와 인터랙티브한 시나리오 구현
+- **ConditionEvaluator**: JSONB 조건식 처리 
+- **MessageTemplateProcessor**: 변수 치환 (`${userName}`, `${today}`)
+- **동적 버튼 UI**: 프론트엔드 선택지 렌더링
+- **개인화 대화**: 사용자별 맞춤 응답 및 분기 처리
+
+### ✅ 5편: **의도분석과 일반대화** 
+- **IntentRecognizer**: 5단계 의도분석 파이프라인
+  - 입력 검증 → 텍스트 전처리 → 오타 교정 → 기본대화 매칭 → 폴백 응답
+- **TypowordService**: DB 기반 오타 교정 ("안뇽" → "안녕")
+- **ConversationBlockService**: 키워드 기반 일반 대화 매칭
+- **Levenshtein 거리**: 문자열 유사도 계산으로 오타 허용
+- **캐시 최적화**: `@Cacheable`로 성능 향상
+- **다양한 폴백 응답**: 매칭 실패 시 자연스러운 안내
+
+---
+
+## 🧠 의도분석 시스템 (5편)
+
+사용자가 **"안뇽하세요"**, **"시작해줘"** 같은 자유로운 입력을 해도 똑똑하게 이해합니다.
+
+```mermaid
+flowchart TD
+    A["사용자 입력 '안뇽하세요'"] --> B["1.텍스트 전처리<br/>특수문자 제거, 소문자 변환"]
+    B --> C["2.오타 교정<br/>'안뇽' → '안녕' 변환"]
+    C --> D["3.의도분석 엔진"]
+    D --> D1["• 기본대화 매칭<br/>ConversationBlock 검색"]
+    D --> D2["• 지식베이스<br/>KnowledgeService (6편 예정)"]
+    D --> D3["• 폴백 응답<br/>매칭 실패 시 기본 응답"]
+    D1 --> E["4. 응답 생성<br/>ChatResponse 반환"]
+    D2 --> E
+    D3 --> E
+```
+
+**핵심 알고리즘:**
+- **유사도 계산**: 정확일치(1.0) → 포함관계(0.8) → Levenshtein 거리
+- **임계값 기반**: 0.6 이상일 때만 매칭 성공
+- **메모리 캐시**: 반복 요청 성능 최적화
 
 ---
 
 ## 기술 스택
 
-**Backend**
-- Java 17
-- Spring Boot 3.x
-- MyBatis
-- PostgreSQL 15 (JSONB 활용)
-- Gradle (Kotlin DSL)
-- JUnit 5 + MockMvc
+**Backend (Spring Boot)**
+- **Java 17** + Spring Boot 3.x
+- **MyBatis** + PostgreSQL 15 (JSONB 활용)
+- **WebSocket (STOMP)** + 캐시 최적화
+- **Gradle Kotlin DSL** + JUnit 5
 
-**Frontend**
-- Vue.js 3
-- Vite
-- Pinia
-- Node.js 20.x
+**Frontend (Vue.js)**
+- **Vue.js 3** + Vite + TypeScript
+- **Pinia** 상태 관리 + **Vue Router**
+- **STOMP.js** WebSocket 클라이언트
 
-**DevOps**
-- Docker / Docker Compose
-- GitHub Actions (CI/CD)
+**DevOps & Tools**
+- **Docker Compose** 개발 환경
+- **GitHub Actions** CI/CD
+- **Mermaid** 다이어그램
 
 ---
 
 ## 아키텍처
 
 ```
-┌───────────────────────┐
-│      Frontend (Vue)    │
-│ - Vite Build           │
-│ - Pinia 상태관리       │
-└───────────▲───────────┘
-            │ REST API
-            ▼
-┌───────────────────────┐
-│   Backend (Spring)     │
-│ - MyBatis Persistence  │
-│ - REST API Controller  │
-└───────────▲───────────┘
-            │ SQL Query
-            ▼
-┌───────────────────────┐
-│   PostgreSQL Database  │
-└───────────────────────┘
+┌─────────────────────────────────────────────────┐
+│                Frontend (Vue.js 3)               │
+│  ┌─────────┐  ┌──────────┐  ┌──────────────┐  │
+│  │   Chat   │  │  Admin   │  │   Analytics  │  │
+│  │    UI    │  │  Panel   │  │   Dashboard  │  │
+│  └─────────┘  └──────────┘  └──────────────┘  │
+└─────────────────────────────────────────────────┘
+                         │
+                    WebSocket/REST
+                         │
+┌─────────────────────────────────────────────────┐
+│              Backend (Spring Boot)              │
+│  ┌─────────────────────────────────────────┐  │
+│  │            Controller Layer              │  │
+│  │  • ChatWebSocketController               │  │
+│  │  • ScenarioController                    │  │
+│  └─────────────────────────────────────────┘  │
+│  ┌─────────────────────────────────────────┐  │
+│  │             Service Layer                │  │
+│  │  • IntentRecognizer (의도분석)           │  │
+│  │  • ScenarioService (시나리오 실행)       │  │
+│  │  • TypowordService (오타교정)            │  │
+│  └─────────────────────────────────────────┘  │
+│  ┌─────────────────────────────────────────┐  │
+│  │          Repository Layer (MyBatis)      │  │
+│  └─────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────┘
+                         │
+                    PostgreSQL
 ```
 
 ---
 
-## 🚀 실행 방법
+## 실행 방법
 
 ### 1) 저장소 클론
 ```bash
@@ -107,8 +152,12 @@ git clone https://github.com/kyunmo/chatbot-series.git
 cd chatbot-series
 ```
 
-### 2) PostgreSQL 실행 (Docker)
+### 2) 데이터베이스 실행 (Docker)
 ```bash
+# PostgreSQL + 초기 데이터 로드
+docker-compose up -d postgres
+
+# 또는 직접 실행
 docker run --name chatbot-postgres \
     -e POSTGRES_DB=chatbot_dev \
     -e POSTGRES_USER=chatbot \
@@ -118,19 +167,32 @@ docker run --name chatbot-postgres \
 
 ### 3) 백엔드 실행
 ```bash
+cd backend
 ./gradlew bootRun
+
+# 🟢 Spring Boot 애플리케이션 실행됨
+# 📡 WebSocket 서버: ws://localhost:9780/ws/chat
+# 🔗 Health Check: http://localhost:9780/actuator/health
 ```
 
-### 4) 프론트엔드 실행
+### 4) 프론트엔드 실행 (별도 터미널)
 ```bash
 cd frontend
 npm install
 npm run dev
+
+# 🌐 Vite 개발 서버: http://localhost:5173
+# 💬 ChatBot UI 접속 가능
 ```
 
-**접속 주소**
-- Backend: [http://localhost:9780](http://localhost:9780)
-- Frontend: [http://localhost:5173](http://localhost:5173)
+### 5) 데모 테스트
+
+**브라우저에서 테스트:**
+1. http://localhost:5173 접속
+2. 채팅창에 다양한 입력 시도:
+   - `"안뇽하세요"` → 오타 교정 후 인사 응답
+   - `"시작해줘"` → 시나리오 자동 시작
+   - `"복잡한 질문"` → 폴백 응답 + 안내
 
 ---
 
@@ -140,36 +202,56 @@ npm run dev
 chatbot-series/
 ├── backend/                    # Spring Boot 백엔드
 │   ├── src/main/java/io/moyam/chatbot/
-│   │   ├── domain/            # 9개 도메인 모델
-│   │   ├── mapper/            # MyBatis 매퍼 인터페이스
-│   │   ├── service/           # 비즈니스 로직
-│   │   └── config/            # 설정 (JsonTypeHandler 등)
+│   │   ├── domain/            # 도메인별 구조 (DDD)
+│   │   │   ├── conversation/  # 대화 관리 + IntentRecognizer
+│   │   │   ├── scenario/      # 시나리오 실행 엔진
+│   │   │   ├── typoword/      # 오타 교정 시스템
+│   │   │   ├── conversationblock/ # 기본 대화 블록
+│   │   │   ├── intent/        # 의도분석 결과 모델
+│   │   │   ├── bot/           # 봇 관리
+│   │   │   ├── user/          # 사용자 관리
+│   │   │   └── file/          # 파일 관리
+│   │   ├── interfaces/        # API 컨트롤러
+│   │   ├── config/            # 설정 (WebSocket, Cache 등)
+│   │   └── common/            # 공통 유틸리티
 │   └── src/main/resources/
-│       ├── mybatis/mapper/    # XML 매퍼 파일들
+│       ├── mybatis/mapper/    # 도메인별 XML 매퍼
+│       ├── sql/               # DDL, 샘플 데이터
 │       └── application-*.yml  # 환경별 설정
-├── frontend/                   # Vue.js 프론트엔드
+├── frontend/                   # Vue.js 3 프론트엔드
 │   ├── src/
+│   │   ├── components/        # Vue 컴포넌트
+│   │   ├── stores/            # Pinia 상태 관리
+│   │   └── services/          # API 서비스
 │   └── package.json
-├── docs/                      # 시리즈 문서
-└── scripts/                   # 유틸리티 스크립트
+├── docker-compose.yml         # 개발 환경
+└── README.md                  
 ```
 
 ---
 
-## 🌿 브랜치 & 커밋 규칙
+## 개발 워크플로우
 
-### 브랜치 구조
-- `main`: 안정된 버전
-- `series/XX-[feature-name]`: 각 시리즈별 브랜치
-
-### 커밋 메시지 형식
+### 브랜치 전략
+```bash
+main                           # 안정된 릴리스
+├── series/01-project-setup    # ✅ 1편 완료
+├── series/02-database-design  # ✅ 2편 완료  
+├── series/03-scenario-system  # ✅ 3편 완료
+├── series/04-websocket-chat   # ✅ 4편 완료
+├── series/04.5-scenario-improvment   # ✅ 4.5편 완료
+├── series/05-conversation # ✅ 5편 완료
+└── series/06-knowledge-base   # 📋 6편 개발 중
 ```
-feat[02]: JSONB 타입 핸들러 추가
-fix[02]: 순환 참조 DDL 순서 수정
-test[02]: 도메인 매퍼 테스트 완성
-docs[02]: 데이터베이스 설계 문서 업데이트
-```
 
+### 커밋 메시지 규칙
+```bash
+feat[05]: IntentRecognizer 의도분석 엔진 구현
+fix[05]: Levenshtein 거리 계산 성능 최적화
+test[05]: 오타교정 서비스 통합 테스트 추가
+docs[05]: 의도분석 설계 배경 문서 업데이트
+refactor[05]: ConversationBlock 캐시 구조 개선
+```
 ---
 
-**📖 현재 진행 상황**: 4편 완료, 5편 진행 중 
+📖 현재 진행 상황: 5편 완료, 6편 진행 중
