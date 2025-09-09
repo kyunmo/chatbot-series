@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="io.moyam.chatbot.domain.typoword.repository.TypowordMapper">
+
+    <!-- 가장 중요한 쿼리: 오타 교정 단어 찾기 -->
+    <select id="findCorrectWord" resultType="string">
+        SELECT correct_word 
+        FROM typo_words 
+        WHERE incorrect_word = #{incorrectWord}
+        LIMIT 1
+    </select>
+
+    <!-- 전체 오타 교정 데이터 조회 -->
+    <select id="findAll" resultType="io.moyam.chatbot.domain.typoword.model.Typoword">
+        SELECT id, incorrect_word, correct_word, description, created_at, updated_at
+        FROM typo_words
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- ID로 조회 -->
+    <select id="findById" resultType="io.moyam.chatbot.domain.typoword.model.Typoword">
+        SELECT id, incorrect_word, correct_word, description, created_at, updated_at
+        FROM typo_words
+        WHERE id = #{id}
+    </select>
+
+    <!-- 오타 규칙 추가 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO typo_words (incorrect_word, correct_word, description, created_at, updated_at)
+        VALUES (#{incorrectWord}, #{correctWord}, #{description}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    </insert>
+
+    <!-- 오타 규칙 수정 -->
+    <update id="update">
+        UPDATE typo_words 
+        SET incorrect_word = #{incorrectWord},
+            correct_word = #{correctWord},
+            description = #{description},
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = #{id}
+    </update>
+
+    <!-- 오타 규칙 삭제 -->
+    <delete id="delete">
+        DELETE FROM typo_words 
+        WHERE id = #{id}
+    </delete>
+
+    <!-- 특정 올바른 단어의 모든 오타 패턴 조회 -->
+    <select id="findByCorrectWord" resultType="io.moyam.chatbot.domain.typoword.model.Typoword">
+        SELECT id, incorrect_word, correct_word, description, created_at, updated_at
+        FROM typo_words
+        WHERE correct_word = #{correctWord}
+        ORDER BY incorrect_word
+    </select>
+
+</mapper>
